@@ -4,99 +4,57 @@ import shutil
 import os
 import numpy as np
 import abc
-import random
-from collections import namedtuple
-
-# Reference site https://www.a1k0n.net/2011/07/20/donut-math.html
 
 SCREEN_WIDTH  = shutil.get_terminal_size().columns
 SCREEN_HEIGHT = shutil.get_terminal_size().lines
 
 MAX_RAD = 2 * math.pi
 
+K1 = 30
+
 class ThreeDimensionalObject(object, metaclass=abc.ABCMeta):
-    """ 3D Object """
-    # Distance between object and eye
-    # If you want to change size, you can update this value
+    """ 3Dオブジェクトを計算するクラス """
+    @abc.abstractmethod
+    def compute_frame(self, A, B):
+        """ 最大2軸方向への計算が可能 """
+        pass
+
+class Donut(ThreeDimensionalObject):
+    # Small circle radius
+    R1 = 1
+    # Big circle radius
+    R2 = 2
+
+    # Distance between screen and eye
     K2 = 5
-
-    # X, Y, Z軸の回転角度を保持
-    Xrad = 0.0
-    Yrad = 0.0
-    Zrad = 0.0
-
-    # X, Y, Z軸の位置を保持
-    Xpos = 0.0
-    Ypos = 0.0
-    Zpos = 0.0
-
-    # 所属するCanvas
-    canvas = None
-    # 計算結果を保持する
-
-    @abc.abstractmethod
-    def next_frame(self):
-        pass
-
-    @abc.abstractmethod
-    def has_next(self):
-        pass
-
-class Donut1(ThreeDimensionalObject):
-    Xspacing = None
-    Zspacing = None
 
     theta_spacing = 0.07
     phi_spacing   = 0.02
 
-    R1 = 1
-    R2 = 2
+    screen_notes = [[None for i in range(int(MAX_RAD * 100) + 1)]
+                    for j in range(int(MAX_RAD * 100) + 1)]
 
-    storage = [[[] for i in range(int(MAX_RAD * 100) + 1)]
-              for j in range(int(MAX_RAD * 100) + 1)]
+    def compute_frame(self, A, B):
+        """ A: X軸, B: Y軸 """
+        note_a = int(A * 100)
+        note_b = int(B * 100)
+        if not(self.screen_notes[note_a][note_b] is None):
+            return self.screen_notes[note_a][note_b]
+        
+        # zbuffer
+        zbuffer = np.zeros((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # screen contents
+        output  = np.full((SCREEN_WIDTH, SCREEN_HEIGHT), ' ')
 
-    def __init__(self, xspa, zspa):
-        self.Xspacing = xspa
-        self.Zspacing = zspa
-        self.Xpos = SCREEN_WIDTH / 2
-        self.Ypos = SCREEN_HEIGHT / 2
-
-    def next_frame(self):
-        if self.Xrad > MAX_RAD:
-            self.Xrad = 0
-        if self.Zrad > MAX_RAD:
-            self.Zrad = 0
-
-        xnum = int(self.Xrad * 100)
-        znum = int(self.Zrad * 100)
-
-        if not(self.storage[xnum][znum]):
-            points = self.compute_frame()
-            self.storage[xnum][znum] = points
-
-        val = self.storage[xnum][znum]
-
-        for v in val:
-            self.canvas.set_output(v[0], v[1])
-
-        self.Xrad += self.Xspacing
-        self.Zrad += self.Zspacing
-
-    def has_next(self):
-        return True
-
-    def compute_frame(self):
-        points = []
-
-        # precompute
-        sinX = math.sin(self.Xrad)
-        cosX = math.cos(self.Xrad)
-        sinZ = math.sin(self.Zrad)
-        cosZ = math.cos(self.Zrad)
+        # Precompute
+        sinA = math.sin(A)
+        cosA = math.cos(A)
+        sinB = math.sin(B)
+        cosB = math.cos(B)
 
         theta = 0
         while theta <= MAX_RAD:
-            # precompute
+            # Precompute
             sintheta = math.sin(theta)
             costheta = math.cos(theta)
             circlex = self.R2 + self.R1 * costheta
@@ -104,116 +62,130 @@ class Donut1(ThreeDimensionalObject):
 
             phi = 0
             while phi <= MAX_RAD:
-                #precompute
+                # Precompute
                 sinphi = math.sin(phi)
                 cosphi = math.cos(phi)
 
-                # compute x, y, z
-                # formular from https://www.a1k0n.net/2011/07/20/donut-math.html
-                x = circlex * (cosZ * cosphi + sinX * sinZ * sinphi) - circley * cosX * sinZ
-                y = circlex * (cosphi * sinZ - cosZ * sinX * sinphi) + circley * cosX * cosZ
-                z = cosX * circlex * sinphi + circley * sinX
+                # Compute x, y, z
+                x = circlex * (cosB * cosphi + sinA * sinB * sinphi) - circley * cosA * sinB
+                y = circlex * (cosphi * sinB - cosB * sinA * sinphi) + circley * cosA * cosB
+                z = cosA * circlex * sinphi + circley * sinA
 
-                # compute z position
-                z += self.K2
+                # Compute z position
+                zpos = z + self.K2
 
-                # compute z ^ -1
-                ooz = 1 / z
+                # compute zpos ^ -1
+                ooz = 1 / zpos
 
-                # compute x dash, y dash
-                xdash = round(self.canvas.K1 * x * ooz)
-                ydash = round((self.canvas.K1 / 2) * y * ooz)
+                # Compute xdash, ydash(scree上においての座標)
+                xdash = round(K1 * x * ooz)
+                ydash = round((K1 / 2) * y * ooz)
 
-                # compute x position, y position
-                xpos = round(self.Xpos) + xdash
-                ypos = round(self.Ypos) - ydash
+                # Compute x position, y position
+                # xpos = (screen_width) / 2, ypos = (screen_height) / 2
+                xpos = round((SCREEN_WIDTH)  / 2) + xdash
+                ypos = round((SCREEN_HEIGHT) / 2) - ydash
 
-                # compute luminance (L <= sqrt(2))
-                L = cosphi * costheta * sinZ - cosX * costheta * sinphi - sinX * sintheta 
-                + cosZ * (cosX * sintheta - costheta * sinX * sinphi)
+                # Compute luminance(L <= sqrt(2))
+                L = cosphi * costheta * sinB - cosA * costheta * sinphi - sinA * sintheta 
+                + cosB * (cosA * sintheta - costheta * sinA * sinphi)
 
-                points.append(((xpos, ypos, z), L))
+                # Seek display character
+                if L > 0 and ooz > zbuffer[xpos][ypos]:
+                    zbuffer[xpos][ypos] = ooz
+                    luminance_index = round(L * 8)
+                    output[xpos][ypos] = ".,-~:;=!*#$@"[luminance_index]
 
                 phi += self.phi_spacing
             theta += self.theta_spacing
 
-        return points
+        # Store result
+        self.screen_notes[note_a][note_b] = output
+        return output
 
-
-class ASCIIAnimationCanvas(object, metaclass=abc.ABCMeta):
-    """ 3Dオブジェクトが所属する仮想空間 """
-    # Distance between screen and eye
-    K1 = 30
-    objects = []
-    display = None
-
-    @abc.abstractmethod
-    def start(self):
-        pass
-
-    def set_output(self, point, luminance):
-        x = point[0]
-        y = point[1]
-        z = point[2]
-        ooz = 1 / z
-        if luminance > 0:
-            if ooz > self.zbuffer[x][y]:
-                self.zbuffer[x][y] = ooz
-                luminance_index = round(luminance * 8)
-                self.output[x][y] = ".,-~:;=!*#$@"[luminance_index]
-
-    def animation(self):
-        is_continue = True
-        while is_continue:
-            self.zbuffer = np.zeros((SCREEN_WIDTH, SCREEN_HEIGHT))
-            self.output = np.full((SCREEN_WIDTH, SCREEN_HEIGHT), ' ')
-            is_continue = self.change_frame()
-            self.display.render_frame()
-
-    def change_frame(self):
-        flag = False
-        for o in self.objects:
-            flag = flag or o.has_next
-            if o.has_next:
-                o.next_frame()
-        return flag
-
-
-class CustomCanvas(ASCIIAnimationCanvas):
-    def start(self):
-        """ 実質メインエントリーポイント """
-        self.display = Terminal()
-        self.display.canvas = self
-        self.display.clear_type = WinCommand.instance()
-        d = Donut1(0.04, 0)
-        d.canvas = self
-        self.objects.append(d)
-        self.animation()
-
-   
-
-class Display(object, metaclass=abc.ABCMeta):
-    """ 3Dオブジェクトを描画するための抽象クラス """
-    canvas = None
-
-    @abc.abstractmethod
-    def render_frame(self):
-        pass
-
-class Terminal(Display):
-    """ ターミナル上で3Dオブジェクトを描画するためのクラス """
+class ASCIIAnimation:
+    """ アニメーションを表示するクラス """
+    A_spacing = 0
+    B_spacing = 0
     clear_type = None
+    obj = None
 
-    def render_frame(self):
-        self.clear()
+    def render_forever(self):
+        A = 0
+        B = 0
+        
+        while True:
+            if A > MAX_RAD:
+                A = 0
+            if B > MAX_RAD:
+                B = 0
+
+            output = self.obj.compute_frame(A, B)
+            self.render_frame(output)
+
+            A += self.A_spacing
+            B += self.B_spacing
+
+    def render_frame(self, output):
+        self.clear_type.clear()
         for y in range(SCREEN_HEIGHT):
             for x in range(SCREEN_WIDTH):
-                sys.stdout.write(self.canvas.output[x][y])
+                sys.stdout.write(output[x][y])
             sys.stdout.write(os.linesep)
         sys.stdout.flush()
 
-    def clear(self):
-        self.clear_type.clear()
+class Main(ASCIIAnimation):
+    """
+    以下の二つの要素はそれぞれX軸、Z軸の回転速度を表します。
+    0以上6.28以下で任意の値を設定できます。
+    0を設定するとその軸の回転が止まります。
+    """
+    A_spacing = 0.04
+    B_spacing = 0.04
+
+    def start(self):
+        self.process_arguments()
+        self.render_forever()
+
+    def process_arguments(self):
+        args = sys.argv
+        objtype = ""
+        cleartype = ""
+        if len(args) == 3:
+            objtype = args[1]
+            cleartype = args[2]
+        else:
+            objtype = "donut"
+            cleartype = "escape"
+
+        obj = self.create_object(objtype)
+        clear_type = self.create_clear_type(cleartype)
+
+        if obj is None or clear_type is None:
+            self.show_error_message()
+            sys.exit(0)
+
+        self.obj = obj
+        self.clear_type = clear_type
+
+    def create_object(self, objtype):
+        if objtype == "donut":
+            return Donut()
+        return None
+
+    def create_clear_type(self, cleartype):
+        if cleartype == "escape":
+            return EscapeCharacter.instance()
+        elif cleartype == "win":
+            return WinCommand.instance()
+        elif cleartype == "linux":
+            return LinuxUnixCommand.instance()
+        return None
+
+    def show_error_message(self):
+        print("コマンドライン引数が無効です。")
+        print("第一引数：オブジェクトのタイプ (donut)")
+        print("第二引数：文字を削除する方法 (escape or win or linux)")
 
 class ClearType(object, metaclass=abc.ABCMeta):
     """ ターミナルに書かれた文字を削除する方法を表すクラス """
@@ -235,7 +207,6 @@ class EscapeCharacter(ClearType):
 
     def clear(self):
         sys.stdout.write("\x1b[H")
-        sys.stdout.flush()
 
 # Singleton
 class WinCommand(ClearType):
@@ -268,4 +239,4 @@ class LinuxUnixCommand(ClearType):
         os.system("clear")
 
 if __name__ == "__main__":
-    CustomCanvas().start()
+    Main().start()
