@@ -13,9 +13,9 @@ phi_spacing   = 0.02 # default 0.02
 R1 = 1
 R2 = 2
 
-# Distance between object and screen
-K2 = 5
 # Distance between object and eye
+K2 = 5
+# Distance between screen and eye
 K1 = 30 # default 30
 
 max_rad = 2 * math.pi
@@ -110,11 +110,12 @@ def render_frame(A, B):
             xdash = round(K1 * x * ooz)
             ydash = round((K1 / 2) * y * ooz)
 
+            # xpos = (screen_width) / 2, ypos = (screen_height) / 2
             # compute x position and y position
             xpos = round((screen_width)  / 2) + xdash
             ypos = round((screen_height) / 2) - ydash
 
-            # compute luminace (max = sqrt(2))
+            # compute luminance (max = sqrt(2))
             L = cosphi * costheta * sinB - cosA * costheta * sinphi - sinA * sintheta + cosB * (cosA * sintheta - costheta * sinA * sinphi)
 
             # seek display character
@@ -148,6 +149,6 @@ if __name__ == "__main__":
             A = 0
         if B > max_rad:
             B = 0
-        render_frame(A, 0)
+        render_frame(A, B)
         A += A_spacing
         B += B_spacing
