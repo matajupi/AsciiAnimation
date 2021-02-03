@@ -156,7 +156,7 @@ class Main(ASCIIAnimation):
             cleartype = args[2]
         else:
             objtype = "donut"
-            cleartype = "escape"
+            cleartype = "win"
 
         obj = self.create_object(objtype)
         clear_type = self.create_clear_type(cleartype)
