@@ -5,19 +5,22 @@ import os
 import numpy as np
 import abc
 
-SCREEN_WIDTH  = shutil.get_terminal_size().columns
+SCREEN_WIDTH = shutil.get_terminal_size().columns
 SCREEN_HEIGHT = shutil.get_terminal_size().lines
 
 MAX_RAD = 2 * math.pi
 
 K1 = 30
 
+
 class ThreeDimensionalObject(object, metaclass=abc.ABCMeta):
     """ 3Dオブジェクトを計算するクラス """
+
     @abc.abstractmethod
     def compute_frame(self, A, B):
         """ 最大2軸方向への計算が可能 """
         pass
+
 
 class Donut(ThreeDimensionalObject):
     # Small circle radius
@@ -29,7 +32,7 @@ class Donut(ThreeDimensionalObject):
     K2 = 5
 
     theta_spacing = 0.07
-    phi_spacing   = 0.02
+    phi_spacing = 0.02
 
     screen_notes = [[None for i in range(int(MAX_RAD * 100) + 1)]
                     for j in range(int(MAX_RAD * 100) + 1)]
@@ -38,13 +41,13 @@ class Donut(ThreeDimensionalObject):
         """ A: X軸, B: Y軸 """
         note_a = int(A * 100)
         note_b = int(B * 100)
-        if not(self.screen_notes[note_a][note_b] is None):
+        if not (self.screen_notes[note_a][note_b] is None):
             return self.screen_notes[note_a][note_b]
-        
+
         # zbuffer
         zbuffer = np.zeros((SCREEN_WIDTH, SCREEN_HEIGHT))
         # screen contents
-        output  = np.full((SCREEN_WIDTH, SCREEN_HEIGHT), ' ')
+        output = np.full((SCREEN_WIDTH, SCREEN_HEIGHT), ' ')
 
         # Precompute
         sinA = math.sin(A)
@@ -83,11 +86,11 @@ class Donut(ThreeDimensionalObject):
 
                 # Compute x position, y position
                 # xpos = (screen_width) / 2, ypos = (screen_height) / 2
-                xpos = round((SCREEN_WIDTH)  / 2) + xdash
+                xpos = round((SCREEN_WIDTH) / 2) + xdash
                 ypos = round((SCREEN_HEIGHT) / 2) - ydash
 
                 # Compute luminance(L <= sqrt(2))
-                L = cosphi * costheta * sinB - cosA * costheta * sinphi - sinA * sintheta 
+                L = cosphi * costheta * sinB - cosA * costheta * sinphi - sinA * sintheta
                 + cosB * (cosA * sintheta - costheta * sinA * sinphi)
 
                 # Seek display character
@@ -103,6 +106,7 @@ class Donut(ThreeDimensionalObject):
         self.screen_notes[note_a][note_b] = output
         return output
 
+
 class ASCIIAnimation:
     """ アニメーションを表示するクラス """
     A_spacing = 0
@@ -113,7 +117,7 @@ class ASCIIAnimation:
     def render_forever(self):
         A = 0
         B = 0
-        
+
         while True:
             if A > MAX_RAD:
                 A = 0
@@ -133,6 +137,7 @@ class ASCIIAnimation:
                 sys.stdout.write(output[x][y])
             sys.stdout.write(os.linesep)
         sys.stdout.flush()
+
 
 class Main(ASCIIAnimation):
     """
@@ -187,18 +192,22 @@ class Main(ASCIIAnimation):
         print("第一引数：オブジェクトのタイプ (donut)")
         print("第二引数：文字を削除する方法 (escape or win or linux)")
 
+
 class ClearType(object, metaclass=abc.ABCMeta):
     """ ターミナルに書かれた文字を削除する方法を表すクラス """
+
     @abc.abstractmethod
     def clear(self):
         pass
 
+
 # Singleton
 class EscapeCharacter(ClearType):
     _instance = None
+
     def __init__(self):
         raise RuntimeError("This class is singleton. Please use instance() class method.")
-    
+
     @classmethod
     def instance(cls):
         if cls._instance is None:
@@ -208,12 +217,14 @@ class EscapeCharacter(ClearType):
     def clear(self):
         sys.stdout.write("\x1b[H")
 
+
 # Singleton
 class WinCommand(ClearType):
     _instance = None
+
     def __init__(self):
         raise RuntimeError("This class is singleton. Please use instance() class method.")
-    
+
     @classmethod
     def instance(cls):
         if cls._instance is None:
@@ -223,9 +234,11 @@ class WinCommand(ClearType):
     def clear(self):
         os.system("cls")
 
+
 # Singleton
 class LinuxUnixCommand(ClearType):
     _instance = None
+
     def __init__(self):
         raise RuntimeError("This class is singleton. Please use instance() class method.")
 
@@ -237,6 +250,7 @@ class LinuxUnixCommand(ClearType):
 
     def clear(self):
         os.system("clear")
+
 
 if __name__ == "__main__":
     Main().start()
